@@ -14,8 +14,8 @@ public class Game {
     private World world;
     private Player player;
 
-    private int cameraX = 0;  // Usar int em vez de double
-    private int cameraY = 0;
+    private double cameraX = 0;
+    private double cameraY = 0;
 
     private int selectedBlock = 1;
     
@@ -23,8 +23,8 @@ public class Game {
         this.canvas = canvas;
         this.gc = canvas.getGraphicsContext2D();
 
-        world = new World(100, 60);
-        player = new Player(10, 10);
+        world = new World();
+        player = new Player(100, 40);  // Começa em x=100 (longe para gerar chunks)
 
         // INPUT DO TECLADO
         scene.setOnKeyPressed(e -> {
@@ -44,16 +44,12 @@ public class Game {
             int mouseX = (int) ((e.getX() + cameraX) / World.TILE_SIZE);
             int mouseY = (int) ((e.getY() + cameraY) / World.TILE_SIZE);
 
-            if (mouseX >= 0 && mouseY >= 0 && 
-                mouseX < world.getWidth() && mouseY < world.getHeight()) {
-                
-                if (e.isPrimaryButtonDown()) {
-                    world.setBlock(mouseX, mouseY, 0);
-                }
+            if (e.isPrimaryButtonDown()) {
+                world.setBlock(mouseX, mouseY, 0);
+            }
 
-                if (e.isSecondaryButtonDown()) {
-                    world.setBlock(mouseX, mouseY, selectedBlock);
-                }
+            if (e.isSecondaryButtonDown()) {
+                world.setBlock(mouseX, mouseY, selectedBlock);
             }
         });
     }
@@ -70,15 +66,13 @@ public class Game {
     private void update() {
         player.update(world);
         
-        // Câmera segue o player (em pixels inteiros)
-        cameraX = (int)(player.getX() * World.TILE_SIZE - canvas.getWidth() / 2);
-        cameraY = (int)(player.getY() * World.TILE_SIZE - canvas.getHeight() / 2);
+        // Câmera segue o player
+        cameraX = player.getX() * World.TILE_SIZE - canvas.getWidth() / 2;
+        cameraY = player.getY() * World.TILE_SIZE - canvas.getHeight() / 2;
         
-        // Limita a câmera
-        cameraX = Math.max(0, Math.min(cameraX, 
-            world.getWidth() * World.TILE_SIZE - (int)canvas.getWidth()));
+        // Limita a câmera verticalmente
         cameraY = Math.max(0, Math.min(cameraY, 
-            world.getHeight() * World.TILE_SIZE - (int)canvas.getHeight()));
+            world.getHeight() * World.TILE_SIZE - canvas.getHeight()));
     }
 
     private void render() {
@@ -90,11 +84,10 @@ public class Game {
         // Informações na tela
         gc.setFill(Color.WHITE);
         gc.setFont(javafx.scene.text.Font.font(14));
-        gc.fillText("Selected block: " + getBlockName(selectedBlock), 10, 20);
-        gc.fillText("Position (tiles): " + String.format("%.1f", player.getX()) + ", " + 
-                   String.format("%.1f", player.getY()), 10, 40);
-        gc.fillText("Position (pixels): " + (int)(player.getX() * World.TILE_SIZE) + ", " + 
-                   (int)(player.getY() * World.TILE_SIZE), 10, 60);
+        gc.fillText("Selected: " + getBlockName(selectedBlock), 10, 20);
+        gc.fillText("Position X: " + (int)player.getX(), 10, 40);
+        gc.fillText("Chunk: " + ((int)player.getX() / Chunk.SIZE), 10, 60);
+        gc.fillText("Mundo Infinito! 🚀", 10, 80);
     }
     
     private String getBlockName(int id) {

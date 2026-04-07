@@ -1,84 +1,101 @@
 package application;
 
 import javafx.scene.canvas.GraphicsContext;
+import java.util.HashMap;
+import java.util.Map;
 
 public class World {
 
-    private int width, height;
-    private int[][] blocks;
+    private Map<Integer, Chunk> chunks = new HashMap<>();
+    private int height = 60;  // Altura do mundo em blocos
+    private int renderDistance = 8;  // Chunks renderizados em cada direção
 
     public static final int TILE_SIZE = 32;
 
-    public World(int width, int height) {
-        this.width = width;
-        this.height = height;
-        blocks = new int[width][height];
-
-        generateWorld();
+    public World() {
+        // O mundo começa vazio - chunks são gerados sob demanda
     }
 
-    private void generateWorld() {
-        for (int x = 0; x < width; x++) {
-            // Terreno mais interessante
-            int groundHeight = (int)(height - 15 
-                        + Math.sin(x * 0.1) * 3 
-                        + Math.sin(x * 0.03) * 5);
-            
-            for (int y = 0; y < height; y++) {
-                if (y > groundHeight) {
-                    if (y == groundHeight + 1) {
-                        blocks[x][y] = 2; // grama no topo
-                    } else if (y < groundHeight + 4) {
-                        blocks[x][y] = 1; // terra
-                    } else {
-                        blocks[x][y] = 3; // pedra
-                    }
-                } else {
-                    blocks[x][y] = 0; // ar
-                }
-            }
+    private Chunk getOrCreateChunk(int chunkX) {
+        if (!chunks.containsKey(chunkX)) {
+            chunks.put(chunkX, new Chunk(chunkX, height));
+        }
+        return chunks.get(chunkX);
+    }
+    
+    private Chunk getChunk(int chunkX) {
+        return chunks.get(chunkX);
+    }
+
+    public int getBlock(int worldX, int worldY) {
+        if (worldY < 0 || worldY >= height) return 0;
+        
+        int chunkX = worldX / Chunk.SIZE;
+        int localX = worldX % Chunk.SIZE;
+        
+        if (localX < 0) {
+            chunkX--;
+            localX += Chunk.SIZE;
         }
         
-        // Adiciona algumas árvores
-        for (int i = 0; i < 10; i++) {
-            int treeX = 20 + (int)(Math.random() * (width - 40));
-            int treeY = getGroundHeight(treeX) - 1;
-            if (treeY > 2) {
-                blocks[treeX][treeY] = 1; // tronco
-                if (treeY - 1 >= 0) blocks[treeX][treeY - 1] = 1; // tronco parte 2
-            }
+        Chunk chunk = getChunk(chunkX);
+        if (chunk == null) return 0;
+        
+        return chunk.getBlock(localX, worldY);
+    }
+
+    public void setBlock(int worldX, int worldY, int value) {
+        if (worldY < 0 || worldY >= height) return;
+        
+        int chunkX = worldX / Chunk.SIZE;
+        int localX = worldX % Chunk.SIZE;
+        
+        if (localX < 0) {
+            chunkX--;
+            localX += Chunk.SIZE;
         }
+        
+        Chunk chunk = getOrCreateChunk(chunkX);
+        chunk.setBlock(localX, worldY, value);
     }
     
-    private int getGroundHeight(int x) {
-        for (int y = 0; y < height; y++) {
-            if (blocks[x][y] != 0) {
-                return y;
-            }
-        }
-        return height - 1;
+    public boolean isSolid(int worldX, int worldY) {
+        int block = getBlock(worldX, worldY);
+        return block != 0;  // Ar = 0, qualquer outro bloco é sólido
     }
-    
-    public void setBlock(int x, int y, int value) {
-        if (x >= 0 && y >= 0 && x < width && y < height) {
-            blocks[x][y] = value;
-        }
-    }
-    
+
     public void render(GraphicsContext gc, double cameraX, double cameraY) {
-        // Renderiza apenas o que está visível (otimização)
-        int startX = Math.max(0, (int)(cameraX / TILE_SIZE));
-        int endX = Math.min(width, (int)((cameraX + 800) / TILE_SIZE) + 2);
-        int startY = Math.max(0, (int)(cameraY / TILE_SIZE));
-        int endY = Math.min(height, (int)((cameraY + 600) / TILE_SIZE) + 2);
-
-        for (int x = startX; x < endX; x++) {
-            for (int y = startY; y < endY; y++) {
-                if (blocks[x][y] != 0) {
-                    double drawX = x * TILE_SIZE - cameraX;
-                    double drawY = y * TILE_SIZE - cameraY;
-
-                    switch (blocks[x][y]) {
+        // Calcula quais chunks estão visíveis
+        int startChunk = (int)(cameraX / (Chunk.SIZE * TILE_SIZE)) - 1;
+        int endChunk = startChunk + renderDistance;
+        
+        // Limita para não gerar chunks infinitos
+        startChunk = Math.max(-100, startChunk);
+        endChunk = Math.min(100, endChunk);
+        
+        for (int cx = startChunk; cx <= endChunk; cx++) {
+            Chunk chunk = getOrCreateChunk(cx);
+            
+            int chunkWorldX = cx * Chunk.SIZE * TILE_SIZE;
+            
+            for (int x = 0; x < Chunk.SIZE; x++) {
+                for (int y = 0; y < height; y++) {
+                    int block = chunk.getBlock(x, y);
+                    if (block == 0) continue;
+                    
+                    double worldX = chunkWorldX + x * TILE_SIZE;
+                    double worldY = y * TILE_SIZE;
+                    
+                    double drawX = worldX - cameraX;
+                    double drawY = worldY - cameraY;
+                    
+                    // Só desenha se estiver dentro da tela (otimização)
+                    if (drawX + TILE_SIZE < 0 || drawX > 800 || 
+                        drawY + TILE_SIZE < 0 || drawY > 600) {
+                        continue;
+                    }
+                    
+                    switch (block) {
                         case 1:
                             gc.drawImage(Block.DIRT, drawX, drawY, TILE_SIZE, TILE_SIZE);
                             break;
@@ -94,11 +111,19 @@ public class World {
         }
     }
     
-    public boolean isSolid(int x, int y) {
-        if (x < 0 || y < 0 || x >= width || y >= height) return true; // Fora do mundo é sólido
-        return blocks[x][y] != 0; // Qualquer bloco que não seja ar é sólido
+    public int getHeight() {
+        return height;
     }
     
-    public int getWidth() { return width; }
-    public int getHeight() { return height; }
+    public int getWidth() {
+        // Retorna "infinito" conceitualmente
+        return Integer.MAX_VALUE;
+    }
+    
+    // Opcional: Limpar chunks distantes para economizar memória
+    public void unloadDistantChunks(int playerChunkX, int distance) {
+        chunks.entrySet().removeIf(entry -> 
+            Math.abs(entry.getKey() - playerChunkX) > distance
+        );
+    }
 }
