@@ -1,7 +1,3 @@
-Claro, Luciano. Aqui está um **mini README simples, claro e profissional** para o teu projeto:
-
----
-
 # MiniCraft 2D (JavaFX)
 
 ## Descrição
@@ -61,11 +57,6 @@ Este projeto consiste no desenvolvimento de uma versão simplificada do jogo Min
 * Transição para 3D com OpenGL (LWJGL)
 
 ---
-
 ## Objetivo futuro
 
 Transformar este projeto em uma base sólida para desenvolvimento de jogos, evoluindo de um protótipo 2D para uma versão mais avançada em 3D.
-
----
-
-Se quiser, posso também adaptar isso para um **README mais técnico (nível GitHub profissional)** ou um **post para LinkedIn** mostrando o impacto do projeto.
